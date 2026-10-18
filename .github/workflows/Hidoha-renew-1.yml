@@ -3,7 +3,7 @@ name: Hidoha Auto Renew - Account 1
 on:
   schedule:
     # 每 3 天 UTC 00:00 运行 (北京时间 08:00)
-    - cron: "0 0 */3 * *"
+    - cron: "12 0 1 * *"
   workflow_dispatch: {}
 
 permissions:
@@ -76,11 +76,10 @@ jobs:
       - name: 更新时间戳(防止仓库失活)
         if: always()
         run: |
-          mkdir -p .github
-          echo "Account 1 last run: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > .github/last_run_1.txt
+          echo "Account 1 last run: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > last_run_1.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/last_run_1.txt
+          git add last_run_1.txt
           git pull --rebase origin main || true
           git diff --cached --quiet || git commit -m "chore: update acc1 run timestamp [skip ci]"
           git push origin main || git push
