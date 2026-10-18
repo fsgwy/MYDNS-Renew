@@ -91,7 +91,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           REPO="${{ github.repository }}"
-          WORKFLOW_FILE="renew-account-1.yml"
+          WORKFLOW_FILE="Hidoha-renew-1.yml"
           CURRENT_RUN_ID="${{ github.run_id }}"
           echo "当前 run id: $CURRENT_RUN_ID, 开始清理历史记录..."
           RUN_IDS=$(gh run list --repo "$REPO" --workflow "$WORKFLOW_FILE" --json databaseId --limit 100 --jq '.[].databaseId')
