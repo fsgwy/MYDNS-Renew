@@ -21,7 +21,7 @@ jobs:
       - name: 拉取私有仓库里的续期脚本
         uses: actions/checkout@v4
         with:
-          repository: ${{ vars.PRIVATE_REPO }}
+          repository: ${{ secrets.PRIVATE_REPO }}
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
           path: private-script
 
