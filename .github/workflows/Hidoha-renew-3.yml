@@ -3,7 +3,7 @@ name: Hidoha Auto Renew - Account 3
 on:
   schedule:
     # 相比账号1错开40分钟:每 3 天 UTC 00:40 运行 (北京时间 08:40)
-    - cron: "40 0 */3 * *"
+    - cron: "27 0 1 * *"
   workflow_dispatch: {}
 
 permissions:
@@ -76,13 +76,12 @@ jobs:
       - name: 更新时间戳(防止本仓库超过 60 天无活动导致 Actions 被自动停用)
         if: always()
         run: |
-          mkdir -p .github
-          echo "Account 3 last run: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > .github/last_run_3.txt
+          echo "Account 1 last run: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > last_run_1.txt
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/last_run_3.txt
+          git add last_run_1.txt
           git pull --rebase origin main || true
-          git diff --cached --quiet || git commit -m "chore: update acc3 run timestamp [skip ci]"
+          git diff --cached --quiet || git commit -m "chore: update acc1 run timestamp [skip ci]"
           git push origin main || git push
 
       - name: 清理历史 workflow 运行记录(只保留本次)
