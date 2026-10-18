@@ -1,0 +1,103 @@
+name: Hidoha Auto Renew - Account 3
+
+on:
+  schedule:
+    # 相比账号1错开40分钟:每 3 天 UTC 00:40 运行 (北京时间 08:40)
+    - cron: "40 0 */3 * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: 拉取本仓库
+        uses: actions/checkout@v4
+
+      - name: 拉取私有仓库里的续期脚本
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.PRIVATE_REPO }}
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          path: private-script
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安装依赖
+        run: |
+          pip install -r private-script/requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: 设置代理(账号3专属)
+        env:
+          PROXY_LINK: ${{ secrets.HIDOHA_PROXY_LINK_3 }}
+          PROXY_OUTBOUND: ${{ secrets.HIDOHA_PROXY_OUTBOUND_3 }}
+          PROXY_SIMPLE: ${{ secrets.HIDOHA_PROXY_3 }}
+          HIDOHA_DEBUG: ${{ vars.HIDOHA_DEBUG }}
+        run: |
+          if [ -n "$PROXY_LINK" ] || [ -n "$PROXY_OUTBOUND" ]; then
+            python3 private-script/setup_proxy.py
+            echo "HIDOHA_PROXY=socks5://127.0.0.1:1080" >> "$GITHUB_ENV"
+          elif [ -n "$PROXY_SIMPLE" ]; then
+            echo "使用普通 http/https/socks5 代理"
+            echo "HIDOHA_PROXY=$PROXY_SIMPLE" >> "$GITHUB_ENV"
+          else
+            echo "⚠️ 未配置任何代理(HIDOHA_PROXY_LINK_3 / HIDOHA_PROXY_OUTBOUND_3 / HIDOHA_PROXY_3 为空),将用 runner 出口 IP 直连"
+          fi
+
+      - name: 运行续期脚本
+        working-directory: private-script
+        env:
+          HIDOHA_EMAIL: ${{ secrets.HIDOHA_EMAIL_3 }}
+          HIDOHA_PASSWORD: ${{ secrets.HIDOHA_PASSWORD_3 }}
+          HIDOHA_ORDER_ID: ${{ secrets.HIDOHA_ORDER_ID_3 }}
+          HIDOHA_RENEW_THRESHOLD_DAYS: ${{ vars.HIDOHA_RENEW_THRESHOLD_DAYS }}
+          HIDOHA_SUCCESS_DAYS_DELTA: ${{ vars.HIDOHA_SUCCESS_DAYS_DELTA }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          MODE: public
+        run: python renew.py
+
+      - name: 上传调试截图
+        if: failure() && vars.HIDOHA_DEBUG == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots-acc3
+          path: private-script/screenshots/
+          if-no-files-found: ignore
+
+      - name: 更新时间戳(防止本仓库超过 60 天无活动导致 Actions 被自动停用)
+        if: always()
+        run: |
+          mkdir -p .github
+          echo "Account 3 last run: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > .github/last_run_3.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/last_run_3.txt
+          git pull --rebase origin main || true
+          git diff --cached --quiet || git commit -m "chore: update acc3 run timestamp [skip ci]"
+          git push origin main || git push
+
+      - name: 清理历史 workflow 运行记录(只保留本次)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          WORKFLOW_FILE="Hidoha-renew-3.yml"
+          CURRENT_RUN_ID="${{ github.run_id }}"
+          echo "当前 run id: $CURRENT_RUN_ID,开始清理历史记录..."
+          RUN_IDS=$(gh run list --repo "$REPO" --workflow "$WORKFLOW_FILE" --json databaseId --limit 100 --jq '.[].databaseId')
+          for id in $RUN_IDS; do
+            if [ "$id" != "$CURRENT_RUN_ID" ]; then
+              echo "删除历史运行记录: $id"
+              gh run delete "$id" --repo "$REPO" || echo "  -> 删除失败(可能权限不足),跳过"
+            fi
+          done
